@@ -1,4 +1,5 @@
-## O.I.N.K: On-chain Intergirty Network Knowledge 
+# O.I.N.K: On-Chain Integrity Network Knowledge
 
-** O.I.N.K is a global on-chain reputation system. This can enable under-collateralized loans and gauge a user's trustworthliness in a open, permisionless, transparent way.
+## Overview
 
+O.I.N.K is an on-chain reputation system designed to facilitate under-collateralized loans by assessing a user's creditworthiness in an open, permissionless, and transparent manner.
