@@ -42,18 +42,11 @@ contract ReputationScore {
  */
 
 /**
- * PENALTIES:
- * Missed payments & Defaulted accounts will be reported to the credit bureaus.
- * User locked out of taking anymore loans
- *
- */
-
-/**
  * POINT WEIGHTAGE:
- * Payment History - 40% - Timing of Interest payments made for used balances
- * Limit Usage - 30% - Percentage of available balance withdrawn
- * Derogatory Marks - 20% - EX: 1 per missed payment
- * Length of Reputation - 10% - How long since user first established a reputation
+ * On-time Interest Payment = 10 points
+ * Limit Usage = 1 point per 10% of non-collateralized limit not used. Must be using more than 0%. (An unused limit can not accrue points)
+ * Derogatory Mark = Lose one entire rank and start at beginning of that rank - EX: 1 per missed payment
+ * Length of Reputation = 1 point per day of used limit
  */
 
 /**
@@ -66,6 +59,7 @@ contract ReputationScore {
  * R&D:
  * How can I use weights to determine a score?
  * How does the score determine fixed APRs?
+ * How to incentive on-time payments without threat of IRL credit score dropping
  */
 
 /**

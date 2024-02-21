@@ -25,6 +25,16 @@ contract Accounts {
     mapping(address user => uint256 amount) private s_creditBalance;
     mapping(address user => uint256 amount) private s_collateralBalance;
 
+    mapping(address user => AccountDetails account) private s_accountDetails;
+
+    struct AccountDetails {
+        string rank;
+        uint256 points;
+        uint256 creditLimit;
+        uint256 creditBalance;
+        uint256 collateralBalance;
+    }
+
     constructor(address[] memory _whitelistedTokenAddresses) {
         s_whitelistedTokenAddresses = _whitelistedTokenAddresses;
     }
@@ -53,7 +63,7 @@ contract Accounts {
 
     // Update user points
     function _updatePoints(address _user, uint256 _action) internal {
-        s_userPoints[_user] += _action;
+        s_accountDetails[_user].points += _action;
         _updateCreditLimit(_user);
     }
 
@@ -61,18 +71,18 @@ contract Accounts {
     function _updateCreditLimit(address _user) internal {
         uint256 points = _getPoints(_user);
 
-        if (points < 250) s_creditLimit[_user] = s_bronzeCreditLimit;
-        if (points >= 250 && points < 500) s_creditLimit[_user] = s_silverCreditLimit;
-        if (points >= 500 && points < 750) s_creditLimit[_user] = s_goldCreditLimit;
-        if (points >= 750 && points < 975) s_creditLimit[_user] = s_platinumCreditLimit;
-        if (points >= 975 && points <= 1000) s_creditLimit[_user] = s_diamondCreditLimit;
+        if (points < 250) s_accountDetails[_user].creditLimit = s_bronzeCreditLimit;
+        if (points >= 250 && points < 500) s_accountDetails[_user].creditLimit = s_silverCreditLimit;
+        if (points >= 500 && points < 750) s_accountDetails[_user].creditLimit = s_goldCreditLimit;
+        if (points >= 750 && points < 975) s_accountDetails[_user].creditLimit = s_platinumCreditLimit;
+        if (points >= 975 && points <= 1000) s_accountDetails[_user].creditLimit = s_diamondCreditLimit;
     }
 
     function _getPoints(address _user) internal view returns (uint256) {
-        return s_userPoints[_user];
+        return s_accountDetails[_user].points;
     }
 
     function getCreditLimit(address _user) public view returns (uint256) {
-        return s_creditLimit[_user];
+        return s_accountDetails[_user].creditLimit;
     }
 }
