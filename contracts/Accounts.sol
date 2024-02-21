@@ -6,7 +6,7 @@ contract Accounts {
     error OINK__TokenNotWhitelisted();
 
     // Whitelisted Stablecoins
-    address[] private s_whitelistedTokenAddresses;
+    address private s_whitelistedTokenAddress;
     // Points per action
     uint256 public constant s_pointsForOnTimePayment = 10;
     uint256 public constant s_pointsForlimitUsage = 1;
@@ -28,15 +28,14 @@ contract Accounts {
     mapping(address user => AccountDetails account) private s_accountDetails;
 
     struct AccountDetails {
-        string rank;
         uint256 points;
         uint256 creditLimit;
         uint256 creditBalance;
         uint256 collateralBalance;
     }
 
-    constructor(address[] memory _whitelistedTokenAddresses) {
-        s_whitelistedTokenAddresses = _whitelistedTokenAddresses;
+    constructor(address _whitelistedTokenAddress) {
+        s_whitelistedTokenAddress = _whitelistedTokenAddress;
     }
 
     modifier newUserOnly() {
@@ -47,13 +46,10 @@ contract Accounts {
     }
 
     modifier onlyWhitelistedTokens(address _tokenAddress) {
-        for (uint256 i = 0; i < s_whitelistedTokenAddresses.length; i++) {
-            if (s_whitelistedTokenAddresses[i] == _tokenAddress) {
-                return;
-                _;
-            }
+        if (s_whitelistedTokenAddress != _tokenAddress) {
+            revert OINK__TokenNotWhitelisted();
         }
-        revert OINK__TokenNotWhitelisted();
+        _;
     }
 
     // Start initial credit limit
@@ -69,7 +65,7 @@ contract Accounts {
 
     // Update credit limit based on how many points
     function _updateCreditLimit(address _user) internal {
-        uint256 points = _getPoints(_user);
+        uint256 points = getPoints(_user);
 
         if (points < 250) s_accountDetails[_user].creditLimit = s_bronzeCreditLimit;
         if (points >= 250 && points < 500) s_accountDetails[_user].creditLimit = s_silverCreditLimit;
@@ -78,11 +74,19 @@ contract Accounts {
         if (points >= 975 && points <= 1000) s_accountDetails[_user].creditLimit = s_diamondCreditLimit;
     }
 
-    function _getPoints(address _user) internal view returns (uint256) {
+    function getPoints(address _user) public view returns (uint256) {
         return s_accountDetails[_user].points;
     }
 
     function getCreditLimit(address _user) public view returns (uint256) {
         return s_accountDetails[_user].creditLimit;
+    }
+
+    function getCreditBalance(address _user) public view returns (uint256) {
+        return s_accountDetails[_user].creditBalance;
+    }
+
+    function getCollateralBalance(address _user) public view returns (uint256) {
+        return s_accountDetails[_user].collateralBalance;
     }
 }

@@ -5,9 +5,9 @@ import {Script} from "forge-std/Script.sol";
 import {Accounts} from "../contracts/Accounts.sol";
 
 contract DeployAccounts is Script {
-    address[] private s_whitelistedTokenAddresses;
+    address private s_whitelistedTokenAddresses;
 
-    constructor(address[] memory _whitelistedTokenAddresses) {
+    constructor(address _whitelistedTokenAddresses) {
         s_whitelistedTokenAddresses = _whitelistedTokenAddresses;
     }
 
