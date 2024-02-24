@@ -13,6 +13,7 @@ contract Accounts is ReentrancyGuard {
 
     event CollateralDeposited(address indexed user, address indexed token, uint256 indexed amount);
     event CreditWithrawn(address indexed user, address indexed token, uint256 indexed amount);
+    event NewAccountOpened(address indexed user);
 
     // Whitelisted Stablecoins
     address private s_whitelistedTokenAddress;
@@ -36,6 +37,13 @@ contract Accounts is ReentrancyGuard {
     uint256 public constant s_platinumCollateralRequiredPercentage = 25;
     uint256 public constant s_diamondCollateralRequiredPercentage = 0;
 
+    // APR per rank
+    uint256 public constant s_bronzeAPR = 25;
+    uint256 public constant s_silverAPR = 20;
+    uint256 public constant s_goldAPR = 15;
+    uint256 public constant s_platinumAPR = 10;
+    uint256 public constant s_diamondAPR = 5;
+
     mapping(address user => AccountDetails account) private s_accountDetails;
 
     struct AccountDetails {
@@ -44,6 +52,8 @@ contract Accounts is ReentrancyGuard {
         uint256 creditBalance;
         uint256 collateralBalance;
         uint256 collateralRequired;
+        uint256 currentAPR;
+        uint256 accuredInterestBalance;
     }
 
     constructor(address _whitelistedTokenAddress) {
@@ -72,40 +82,45 @@ contract Accounts is ReentrancyGuard {
     }
 
     // Start initial credit limit
-    function openAccount() public newUserOnly {
+    function openAccount() external newUserOnly {
         _updatePoints(msg.sender, s_pointsForOpeningNewAccount);
+
+        emit NewAccountOpened(msg.sender);
     }
 
     // Update user points
     function _updatePoints(address _user, uint256 _action) internal {
         s_accountDetails[_user].points += _action;
-        _updateCreditDetails(_user);
+        _updateAccountDetails(_user, getPoints(_user));
     }
 
     // Update credit limit based on how many points
-    function _updateCreditDetails(address _user) internal {
-        uint256 points = getPoints(_user);
-
-        if (points < 250) {
+    function _updateAccountDetails(address _user, uint256 _points) internal {
+        if (_points < 250) {
             s_accountDetails[_user].creditLimit = s_bronzeCreditLimit;
             s_accountDetails[_user].collateralRequired = s_bronzeCollateralRequiredPercentage;
             s_accountDetails[_user].creditBalance = s_bronzeCreditLimit;
-        } else if (points < 500) {
+            s_accountDetails[_user].currentAPR = s_bronzeAPR;
+        } else if (_points < 500) {
             s_accountDetails[_user].creditLimit = s_silverCreditLimit;
             s_accountDetails[_user].collateralRequired = s_silverCollateralRequiredPercentage;
             s_accountDetails[_user].creditBalance = s_silverCreditLimit;
-        } else if (points < 750) {
+            s_accountDetails[_user].currentAPR = s_silverAPR;
+        } else if (_points < 750) {
             s_accountDetails[_user].creditLimit = s_goldCreditLimit;
             s_accountDetails[_user].collateralRequired = s_goldCollateralRequiredPercentage;
             s_accountDetails[_user].creditBalance = s_goldCreditLimit;
-        } else if (points < 975) {
+            s_accountDetails[_user].currentAPR = s_goldAPR;
+        } else if (_points < 975) {
             s_accountDetails[_user].creditLimit = s_platinumCreditLimit;
             s_accountDetails[_user].collateralRequired = s_platinumCollateralRequiredPercentage;
             s_accountDetails[_user].creditBalance = s_platinumCreditLimit;
+            s_accountDetails[_user].currentAPR = s_platinumAPR;
         } else {
             s_accountDetails[_user].creditLimit = s_diamondCreditLimit;
             s_accountDetails[_user].collateralRequired = s_diamondCollateralRequiredPercentage;
             s_accountDetails[_user].creditBalance = s_diamondCreditLimit;
+            s_accountDetails[_user].currentAPR = s_diamondAPR;
         }
     }
 
@@ -126,7 +141,7 @@ contract Accounts is ReentrancyGuard {
     // Withdraw from available credit
     function withdrawCredit(address _token, uint256 _amount) external moreThanZero(_amount) nonReentrant {
         require(s_accountDetails[msg.sender].creditBalance >= _amount, "Insufficiant Funds");
-        uint256 collateralNeeded = _calculateCollateral(_amount, s_accountDetails[msg.sender].collateralRequired);
+        uint256 collateralNeeded = _calculateCollateralNeeded(_amount, s_accountDetails[msg.sender].collateralRequired);
         require(s_accountDetails[msg.sender].collateralBalance >= collateralNeeded, "Deposit more collateral");
 
         s_accountDetails[msg.sender].creditBalance -= _amount;
@@ -139,12 +154,28 @@ contract Accounts is ReentrancyGuard {
         emit CreditWithrawn(msg.sender, _token, _amount);
     }
 
-    function _calculateCollateral(uint256 _amount, uint256 _percentage) internal pure returns (uint256) {
-        require(_percentage <= 100, "Percentage cant be more than 100");
+    function _calculateCollateralNeeded(uint256 _amount, uint256 _percentage) internal pure returns (uint256) {
         uint256 scaledAmount = _amount * 1 ether;
         uint256 result = (scaledAmount * _percentage) / 100;
-
         return result / 1 ether;
+    }
+
+    // Adds interest to balance once every 24 hours using Chainlink Automation.
+    function addInterest(address _user) internal {
+        uint256 creditLimit = getCreditLimit(_user);
+        require(creditLimit != 0, "Account doesnt exist");
+
+        uint256 usedCreditBalance = getUsedCreditBalance(_user);
+        uint256 apr = getCurrentAPR(_user);
+        uint256 dailyInterest = _calculateAPR(usedCreditBalance, apr);
+
+        s_accountDetails[_user].accuredInterestBalance += dailyInterest;
+    }
+
+    // Calculate APR for current balance
+    function _calculateAPR(uint256 _balance, uint256 _apr) internal pure returns (uint256) {
+        uint256 dailyInterest = (_balance * _apr) / 36500;
+        return dailyInterest;
     }
 
     function getPoints(address _user) public view returns (uint256) {
@@ -155,11 +186,15 @@ contract Accounts is ReentrancyGuard {
         return s_accountDetails[_user].creditLimit;
     }
 
-    function getCreditBalance(address _user) public view returns (uint256) {
-        return s_accountDetails[_user].creditBalance;
+    function getUsedCreditBalance(address _user) public view returns (uint256) {
+        return s_accountDetails[_user].creditBalance - s_accountDetails[_user].creditLimit;
     }
 
     function getCollateralBalance(address _user) public view returns (uint256) {
         return s_accountDetails[_user].collateralBalance;
+    }
+
+    function getCurrentAPR(address _user) public view returns (uint256) {
+        return s_accountDetails[_user].currentAPR;
     }
 }
